@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificate Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f2f2f2;
+    }
+    .container {
+      display: flex;
+      padding: 20px;
+      gap: 20px;
+    }
+    .form {
+      width: 30%;
+    }
+    .form input, .form textarea, .form button, .form select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      font-size: 14px;
+    }
+    .preview {
+      width: 70%;
+      position: relative;
+      background: url('./cert_template/hiking.png') no-repeat center center;
+      background-size: contain;
+      aspect-ratio: 297 / 210;
+      border: 1px solid #ccc;
+    }
+    .text-layer {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 5%;
+      box-sizing: border-box;
+    }
+    .name {
+      text-align: center;
+      margin-top: 22%;
+      font-size: 30px;
+      font-weight: bold;
+    }
+    .message {
+      text-align: center;
+      margin-top: 2%;
+      font-size: 18px;
+      white-space: pre-line;
+    }
+    .leaders {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      margin-top: 8%;
+      font-size: 14px;
+      text-align: center;
+    }
+    .leader {
+      border-top: 1px solid #000;
+      padding-top: 5px;
+    }
+    .leader span {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="form">
+    <h3>Certificate Generator</h3>
+
+    <select id="bgSelector" onchange="changeBackground()"></select>
+
+    <input type="text" id="name" placeholder="Participant's Name">
+    <textarea id="names" rows="5" placeholder="Enter one name per line"></textarea>
+    <textarea id="message" rows="4" placeholder="Message with date & location">For Conquering the Great Outdoors with Courage and Enthusiasm!
+Date: July 27, 2030
+Location: 123 Anywhere St., Any City, ST 12345</textarea>
+
+    <div id="leadersContainer">
+      <div class="leader-entry">
+        <input type="text" class="leader-name" placeholder="Name (e.g. Juan Dela Cruz)">
+        <input type="text" class="leader-title" placeholder="Title (e.g. Coach, Mentor, Scout Leader)">
+      </div>
+    </div>
+    <button onclick="addLeader()">+ Add Another Signatory</button>
+
+    <button onclick="updateCertificate()">Generate</button>
+    <button onclick="downloadAllPDFs()">Download All PDFs</button>
+    <button onclick="downloadCertificatePDF()">Download PDF</button>
+  </div>
+
+  <div class="preview" id="certificatePreview">
+    <div class="text-layer">
+      <br/><br/>
+      <div class="name" id="certName">[Name]</div>
+      <div class="message" id="certMessage">[Message]</div>
+      <div class="leaders" id="certLeaders"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+  const bgTemplates = [
+    { label: "Mountain Adventure (hiking.png)", file: "hiking.png" },
+    { label: "Bookkeeping Award (bookkeeping.png)", file: "bookkeeping.png" }
+  ];
+
+  function populateBackgroundSelector() {
+    const selector = document.getElementById("bgSelector");
+    bgTemplates.forEach(template => {
+      const option = document.createElement("option");
+      option.value = template.file;
+      option.textContent = template.label;
+      selector.appendChild(option);
+    });
+  }
+
+  function changeBackground() {
+    const selected = document.getElementById("bgSelector").value;
+    const preview = document.getElementById("certificatePreview");
+    preview.style.backgroundImage = `url('./cert_template/${selected}')`;
+  }
+
+  function updateCertificate() {
+    const name = document.getElementById("name").value;
+    const message = document.getElementById("message").value;
+    const leadersDiv = document.getElementById("certLeaders");
+
+    document.getElementById("certName").innerText = name;
+    document.getElementById("certMessage").innerText = message;
+
+    leadersDiv.innerHTML = "";
+
+    const leaderEntries = document.querySelectorAll(".leader-entry");
+    leaderEntries.forEach(entry => {
+      const name = entry.querySelector(".leader-name").value.trim();
+      const title = entry.querySelector(".leader-title").value.trim();
+      if (name && title) {
+        const div = document.createElement("div");
+        div.className = "leader";
+        div.innerHTML = `
+          <span><strong>${name.toUpperCase()}</strong></span>
+          <span>${title.toUpperCase()}</span>
+        `;
+        leadersDiv.appendChild(div);
+      }
+    });
+  }
+
+  function addLeader() {
+    const container = document.getElementById("leadersContainer");
+    const div = document.createElement("div");
+    div.className = "leader-entry";
+    div.innerHTML = `
+      <input type="text" class="leader-name" placeholder="Name (e.g. Jane Doe)">
+      <input type="text" class="leader-title" placeholder="Title (e.g. Teacher, Leader)">
+    `;
+    container.appendChild(div);
+  }
+
+  async function downloadAllPDFs() {
+    const namesRaw = document.getElementById("names").value.trim();
+    const message = document.getElementById("message").value;
+    const certificate = document.getElementById("certificatePreview");
+    const nameField = document.getElementById("certName");
+    const messageField = document.getElementById("certMessage");
+    const leadersField = document.getElementById("certLeaders");
+
+    const leaderEntries = document.querySelectorAll(".leader-entry");
+    const names = namesRaw.split("\n").map(n => n.trim()).filter(n => n.length > 0);
+
+    for (const name of names) {
+      nameField.innerText = name;
+      messageField.innerText = message;
+
+      leadersField.innerHTML = "";
+      leaderEntries.forEach(entry => {
+        const lname = entry.querySelector(".leader-name").value.trim();
+        const ltitle = entry.querySelector(".leader-title").value.trim();
+        if (lname && ltitle) {
+          const div = document.createElement("div");
+          div.className = "leader";
+          div.innerHTML = `
+            <span><strong>${lname.toUpperCase()}</strong></span>
+            <span>${ltitle.toUpperCase()}</span>
+          `;
+          leadersField.appendChild(div);
+        }
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const canvas = await html2canvas(certificate, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jspdf.jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = 297;
+      const pageHeight = 210;
+      pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+
+      const filename = name.replace(/\s+/g, "_") + "_certificate.pdf";
+      pdf.save(filename);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    alert("All certificates downloaded!");
+  }
+
+  async function downloadCertificatePDF() {
+    const certificate = document.getElementById("certificatePreview");
+
+    const canvas = await html2canvas(certificate, { scale: 2 });
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jspdf.jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = 297;
+    const pageHeight = 210;
+    pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+
+    const name = document.getElementById("name").value.trim() || "certificate";
+    const filename = name.replace(/\s+/g, "_") + "_certificate.pdf";
+    pdf.save(filename);
+  }
+
+  window.onload = function () {
+    populateBackgroundSelector();
+    changeBackground();
+  };
+</script>
+
+</body>
+</html>
